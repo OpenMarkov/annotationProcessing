@@ -1,0 +1,162 @@
+package org.openmarkov.annotation_processing.localization_bindings;
+
+import com.google.auto.service.AutoService;
+import org.xml.sax.SAXException;
+
+import javax.annotation.processing.*;
+import javax.lang.model.SourceVersion;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
+import javax.tools.Diagnostic;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardLocation;
+import java.io.File;
+import java.io.IOException;
+import java.io.Writer;
+import java.util.*;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+/**
+ * Process classes annotated with {@link BindXML} by generating a Binding class out of the specified resources.
+ *
+ * @author jrico
+ */
+@SupportedAnnotationTypes({
+        "org.openmarkov.annotation_processing.localization_bindings.BindXML",
+        "org.openmarkov.annotation_processing.localization_bindings.BindXMLRepetition"
+})
+@SupportedSourceVersion(SourceVersion.RELEASE_17)
+@AutoService(Processor.class)
+public class BindXMLProcessor extends AbstractProcessor {
+    
+    /**
+     * Simple struct for holding an {@code annotatedElement} that was annotated with {@link BindXML}, and the own
+     * {@link BindXML} in the {@code definition} component.
+     */
+    private record BindingInformation(Element annotatedElement, BindXML definition) {
+    }
+    
+    /**
+     * Gathers {@link BindXML} from every tagged element to create an XMLBinding class using
+     * {@link BindXMLProcessor#createBindingClass(BindXML, Element)}.
+     *
+     * @return true
+     */
+    @Override
+    public final boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+        this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "Processing XMLConstants");
+        annotations
+                .stream()
+                .map(roundEnv::getElementsAnnotatedWith)
+                .flatMap(Collection::stream)
+                .flatMap(element -> {
+                    var singleAnnotation = element.getAnnotation(BindXML.class);
+                    if (singleAnnotation != null) return Stream.of(new BindingInformation(element, singleAnnotation));
+                    var multipleAnnotations = element.getAnnotation(BindXMLRepetition.class);
+                    return Arrays.stream(multipleAnnotations.value())
+                                 .map(annotation -> new BindingInformation(element, annotation));
+                })
+                .forEach(bindingInfo -> {
+                    try {
+                        this.createBindingClass(bindingInfo.definition, bindingInfo.annotatedElement);
+                    } catch (IOException | SAXException ex) {
+                        this.processingEnv
+                                .getMessager()
+                                .printMessage(Diagnostic.Kind.ERROR, "Could not create binding due to: " + ex, bindingInfo.annotatedElement);
+                    }
+                });
+        return true;
+    }
+    
+    /**
+     * Creates a binding class out of the {@code bindingInfo} and writes it as a source class.
+     * <p>
+     * If writing fails, it is ignored and just a note is written on the element, as this usually happens when the
+     * project has already been built.
+     *
+     * @throws IOException When IO handling.
+     * @throws SAXException When XML format is wrong.
+     */
+    @SuppressWarnings({"SpellCheckingInspection", "DuplicateStringLiteralInspection"})
+    private void createBindingClass(BindXML bindingInfo, Element element) throws IOException, SAXException {
+        String constantsClassName = BindXMLProcessor.getStringOrDefault(bindingInfo.inBaseClass(), "constants");
+        var defaultPackage = this.processingEnv.getElementUtils().getPackageOf(element).toString();
+        var inPackage = BindXMLProcessor.getStringOrDefault(bindingInfo.inPackage(), defaultPackage);
+        JavaFileObject fileObject = this.processingEnv.getFiler()
+                                                      .createSourceFile(inPackage + "." + constantsClassName);
+        var userFileNameFilter = Pattern.compile(bindingInfo.filterFileNameByRegex());
+        
+        var xmlPathToStringFn = Optional.of(bindingInfo.xmlPathToStringFunction())
+                                        .filter(call -> !call.isBlank());
+        
+        var xmlFiles = Arrays
+                .stream(bindingInfo.filePath())
+                .map(path -> BindXMLProcessor.callerResourcePathToFile(this.processingEnv, path))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .flatMap(file -> file.isFile() ? Stream.of(file) :
+                        Arrays
+                                .stream(Objects.requireNonNull(file.listFiles()))
+                                .filter(fileOfDir -> userFileNameFilter.matcher(fileOfDir.getName()).find())
+                                .filter(File::isFile))
+                .filter(file -> file.getName().endsWith(".xml"))
+                .map(File::getAbsolutePath)
+                .collect(Collectors.toSet())
+                .stream()
+                .toList();
+        
+        var constantsClass = new XMLConstantsParser
+                .ClassDefinition(new ArrayList<>(), "package " + inPackage + ";" +
+                "import org.openmarkov.core.stringformat.StringFormat;" +
+                "public final class " + constantsClassName, "");
+        var xmlSubclasses = XMLConstantsParser.parseFiles(xmlFiles, xmlPathToStringFn);
+        constantsClass.addSubClasses(xmlSubclasses);
+        try (Writer writer = fileObject.openWriter()) {
+            writer.write(constantsClass.toString());
+        } catch (FilerException ex) {
+            @SuppressWarnings("BooleanVariableAlwaysNegated")
+            boolean isRecreateError = ex.getMessage().startsWith("Attempt to recreate a file");
+            if (!isRecreateError) {
+                throw ex;
+            }
+            this.processingEnv
+                    .getMessager()
+                    .printMessage(Diagnostic.Kind.NOTE, "This class was trying to replace an already existing file", element);
+        }
+    }
+    
+    /**
+     * Returns an {@code Optional<File>} containing the file only if it exists.
+     *
+     * @return an {@code Optional<File>} containing the file only if it exists.
+     */
+    @SuppressWarnings("OverlyBroadCatchBlock")
+    private static Optional<File> callerResourcePathToFile(ProcessingEnvironment environment, CharSequence resourceRelativePath) {
+        try {
+            return Optional.of(new File(environment
+                                                .getFiler()
+                                                .getResource(StandardLocation.CLASS_OUTPUT, "", resourceRelativePath)
+                                                .toUri()
+                                                .toURL()
+                                                .getFile()
+                                                .substring(1)
+            )).filter(File::exists);
+        } catch (IOException ex) {
+            return Optional.empty();
+        }
+    }
+    
+    /**
+     * Trims and returns the {@code input} {@link String}, unless it is blank or null, in which case it trims and
+     * returns the other {@code defaultString}.
+     *
+     * @return {@code input} trimmed, and if empty, {@code defaultString} trimmed.
+     */
+    private static String getStringOrDefault(String input, String defaultString) {
+        if (input == null || input.isBlank())
+            return defaultString.trim();
+        return input.trim();
+    }
+}
