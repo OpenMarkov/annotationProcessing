@@ -22,11 +22,13 @@
                     <source>${maven.compiler.source}</source>
                     <target>${maven.compiler.target}</target>
                     <annotationProcessorPaths>
+                        <!--
                         <path>
                             <groupId>${groupId}</groupId>
                             <artifactId>${artifactId}</artifactId>
                             <version>${version}</version>
                         </path>
+                        -->
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
