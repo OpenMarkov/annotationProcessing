@@ -1,8 +1,8 @@
 module org.openmarkov.annotation_processing {
     requires org.jetbrains.annotations;
     requires java.compiler;
-    requires com.google.auto.service;
     requires java.xml;
+    requires com.google.auto.service;
     
     exports org.openmarkov.annotation_processing.localization_bindings;
     

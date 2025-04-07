@@ -2,34 +2,54 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <!--
     <parent>
         <groupId>org.openmarkov</groupId>
         <artifactId>org.openmarkov</artifactId>
         <version>0.3.0-SNAPSHOT</version>
         <relativePath>../org.openmarkov</relativePath>
     </parent>
+    -->
 
+    <groupId>org.openmarkov</groupId>
     <artifactId>org.openmarkov.annotation_processing</artifactId>
     <version>0.3.0-SNAPSHOT</version>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <version>26.0.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.auto.service</groupId>
+            <artifactId>auto-service-annotations</artifactId>
+            <version>1.1.1</version>
+        </dependency>
+    </dependencies>
 
     <build>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
+                <version>3.14.0</version>
                 <configuration>
                     <source>${maven.compiler.source}</source>
                     <target>${maven.compiler.target}</target>
                     <annotationProcessorPaths>
                         <path>
-                            <groupId>${groupId}</groupId>
-                            <artifactId>${artifactId}</artifactId>
-                            <version>${version}</version>
+                            <groupId>com.google.auto.service</groupId>
+                            <artifactId>auto-service-annotations</artifactId>
+                            <version>1.1.1</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
         </plugins>
     </build>
+
+
+
+
 </project>
