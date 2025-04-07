@@ -18,6 +18,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
+                <!--
                 <configuration>
                     <source>${maven.compiler.source}</source>
                     <target>${maven.compiler.target}</target>
@@ -27,11 +28,23 @@
                             <artifactId>${artifactId}</artifactId>
                             <version>${version}</version>
                         </path>
-                        <dependency>
+                        <path>
                             <groupId>com.google.auto.service</groupId>
                             <artifactId>auto-service</artifactId>
                             <version>1.1.1</version>
-                        </dependency>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+                -->
+                <configuration>
+                    <source>17</source>
+                    <target>17</target>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.openmarkov</groupId>
+                            <artifactId>org.openmarkov.annotation_processing</artifactId>
+                            <version>0.3.0-SNAPSHOT</version>
+                        </path>
                         <path>
                             <groupId>com.google.auto.service</groupId>
                             <artifactId>auto-service</artifactId>
