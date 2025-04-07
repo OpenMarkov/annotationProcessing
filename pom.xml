@@ -14,6 +14,13 @@
     <groupId>org.openmarkov</groupId>
     <artifactId>org.openmarkov.annotation_processing</artifactId>
     <version>0.3.0-SNAPSHOT</version>
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!--<additionalparam>-Xdoclint:none</additionalparam>-->
+        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.source>17</maven.compiler.source>
+    </properties>
+
 
     <dependencies>
         <dependency>
