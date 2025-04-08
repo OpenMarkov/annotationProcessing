@@ -151,7 +151,7 @@ public class BindXMLProcessor extends AbstractProcessor {
                     .getFiler()
                     .getResource(StandardLocation.CLASS_OUTPUT, "", resourceRelativePath);
             
-            this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "Resource is file: " + resource);
+            this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "Resource is file: " + resource.toUri());
             var file = new File(resource
                                         .toUri()
                                         .toURL()
