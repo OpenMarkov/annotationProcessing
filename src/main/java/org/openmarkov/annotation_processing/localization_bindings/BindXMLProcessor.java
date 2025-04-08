@@ -1,6 +1,7 @@
 package org.openmarkov.annotation_processing.localization_bindings;
 
 import com.google.auto.service.AutoService;
+import org.jetbrains.annotations.Nullable;
 import org.xml.sax.SAXException;
 
 import javax.annotation.processing.*;
@@ -8,6 +9,7 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
+import javax.tools.FileObject;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
 import java.io.File;
@@ -92,29 +94,34 @@ public class BindXMLProcessor extends AbstractProcessor {
         var xmlPathToStringFn = Optional.of(bindingInfo.xmlPathToStringFunction())
                                         .filter(call -> !call.isBlank());
         
-        var xmlFiles = Arrays
-                .stream(bindingInfo.filePath())
-                .map(path -> BindXMLProcessor.callerResourcePathToFile(this.processingEnv, path))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .flatMap(file -> file.isFile() ? Stream.of(file) :
-                        Arrays
-                                .stream(Objects.requireNonNull(file.listFiles()))
-                                .filter(fileOfDir -> userFileNameFilter.matcher(fileOfDir.getName()).find())
-                                .filter(File::isFile))
-                .filter(file -> file.getName().endsWith(".xml"))
-                .map(File::getAbsolutePath)
-                .collect(Collectors.toSet())
-                .stream()
-                .toList();
-        this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "Processing BindXML with files: "+ xmlFiles);
+        var filesSet = new HashSet<String>();
+        for (var path : bindingInfo.filePath()) {
+            var resource = this.callerResourcePathToFile(this.processingEnv, path);
+            if (resource == null)
+                continue;
+            var files = resource.isFile() ? Arrays.asList(resource)
+                    : Arrays.stream(Objects.requireNonNull(resource.listFiles())).toList();
+            for (var file : files) {
+                boolean isMatchedFile = file.isFile() && userFileNameFilter.matcher(file.getName()).find();
+                if (!isMatchedFile || !file.getName().endsWith("xml"))
+                    continue;
+                
+                this.processingEnv.getMessager()
+                                  .printMessage(Diagnostic.Kind.NOTE, "Adding resource: " + path+" of path "+file.getAbsolutePath());
+                filesSet.add(file.getAbsolutePath());
+            }
+        }
+        
+
+        this.processingEnv.getMessager()
+                          .printMessage(Diagnostic.Kind.NOTE, "Processing BindXML with files: " + filesSet);
         
         
         var constantsClass = new XMLConstantsParser
                 .ClassDefinition(new ArrayList<>(), "package " + inPackage + ";" +
                 "import org.openmarkov.core.stringformat.StringFormat;" +
                 "public final class " + constantsClassName, "");
-        var xmlSubclasses = XMLConstantsParser.parseFiles(xmlFiles, xmlPathToStringFn);
+        var xmlSubclasses = XMLConstantsParser.parseFiles(filesSet.stream().toList(), xmlPathToStringFn);
         constantsClass.addSubClasses(xmlSubclasses);
         try (Writer writer = fileObject.openWriter()) {
             writer.write(constantsClass.toString());
@@ -136,18 +143,26 @@ public class BindXMLProcessor extends AbstractProcessor {
      * @return an {@code Optional<File>} containing the file only if it exists.
      */
     @SuppressWarnings("OverlyBroadCatchBlock")
-    private static Optional<File> callerResourcePathToFile(ProcessingEnvironment environment, CharSequence resourceRelativePath) {
+    private @Nullable File callerResourcePathToFile(ProcessingEnvironment environment, CharSequence resourceRelativePath) {
+        this.processingEnv.getMessager()
+                          .printMessage(Diagnostic.Kind.NOTE, "Resolving resource: " + resourceRelativePath);
         try {
-            return Optional.of(new File(environment
-                                                .getFiler()
-                                                .getResource(StandardLocation.CLASS_OUTPUT, "", resourceRelativePath)
-                                                .toUri()
-                                                .toURL()
-                                                .getFile()
-                                                .substring(1)
-            )).filter(File::exists);
+            FileObject resource = environment
+                    .getFiler()
+                    .getResource(StandardLocation.CLASS_OUTPUT, "", resourceRelativePath);
+            
+            this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "Resource is file: " + resource);
+            var file = new File(resource
+                                        .toUri()
+                                        .toURL()
+                                        .getFile()
+                                        .substring(1));
+            if (!file.exists()) {
+                return null;
+            }
+            return file;
         } catch (IOException ex) {
-            return Optional.empty();
+            return null;
         }
     }
     
