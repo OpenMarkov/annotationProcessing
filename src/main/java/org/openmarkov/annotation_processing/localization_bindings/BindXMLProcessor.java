@@ -17,7 +17,6 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.*;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -107,12 +106,12 @@ public class BindXMLProcessor extends AbstractProcessor {
                     continue;
                 
                 this.processingEnv.getMessager()
-                                  .printMessage(Diagnostic.Kind.NOTE, "Adding resource: " + path+" of path "+file.getAbsolutePath());
+                                  .printMessage(Diagnostic.Kind.NOTE, "Adding resource: " + path + " of path " + file.getAbsolutePath());
                 filesSet.add(file.getAbsolutePath());
             }
         }
         
-
+        
         this.processingEnv.getMessager()
                           .printMessage(Diagnostic.Kind.NOTE, "Processing BindXML with files: " + filesSet);
         
@@ -151,14 +150,12 @@ public class BindXMLProcessor extends AbstractProcessor {
                     .getFiler()
                     .getResource(StandardLocation.CLASS_OUTPUT, "", resourceRelativePath);
             
-            this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "Resource is file: " + resource.toUri());
-            var file = new File(resource
-                                        .toUri()
-                                        .toURL()
-                                        .getFile()
-                                        .substring(1));
+            this.processingEnv.getMessager()
+                              .printMessage(Diagnostic.Kind.NOTE, "Resource is file: " + resource.toUri());
+            var file = new File(resource.toUri().toURL().getFile());
             if (!file.exists()) {
-                this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "This resource does not exists: "+file.getAbsolutePath()+".");
+                this.processingEnv.getMessager()
+                                  .printMessage(Diagnostic.Kind.NOTE, "This resource does not exists: " + file.getAbsolutePath() + ".");
                 return null;
             }
             return file;
