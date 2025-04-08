@@ -46,7 +46,7 @@ public class BindXMLProcessor extends AbstractProcessor {
      */
     @Override
     public final boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "Processing XMLConstants");
+        this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "- BindXML processing round start -");
         annotations
                 .stream()
                 .map(roundEnv::getElementsAnnotatedWith)
@@ -67,6 +67,7 @@ public class BindXMLProcessor extends AbstractProcessor {
                                 .printMessage(Diagnostic.Kind.ERROR, "Could not create binding due to: " + ex, bindingInfo.annotatedElement);
                     }
                 });
+        this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "- BindXML processing round end -");
         return true;
     }
     
@@ -106,6 +107,8 @@ public class BindXMLProcessor extends AbstractProcessor {
                 .collect(Collectors.toSet())
                 .stream()
                 .toList();
+        this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "Processing BindXML with files: "+ xmlFiles);
+        
         
         var constantsClass = new XMLConstantsParser
                 .ClassDefinition(new ArrayList<>(), "package " + inPackage + ";" +
