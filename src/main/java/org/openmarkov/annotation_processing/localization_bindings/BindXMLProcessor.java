@@ -158,7 +158,7 @@ public class BindXMLProcessor extends AbstractProcessor {
                                         .getFile()
                                         .substring(1));
             if (!file.exists()) {
-                this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "This resource does not exists.");
+                this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "This resource does not exists: "+file.getAbsolutePath()+".");
                 return null;
             }
             return file;
