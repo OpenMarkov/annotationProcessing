@@ -1,5 +1,6 @@
 package org.openmarkov.annotation_processing.localization_bindings;
 
+import org.jetbrains.annotations.NotNull;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 
@@ -42,12 +43,10 @@ class XMLConstantsParser {
         }
     }
     
-    private record PropertyAndValue(List<String> path, String value) {
-    }
+    private record PropertyAndValue(List<String> path, String value) {}
     
-  
     
-    public static List<ClassDefinition> parseFiles(List<String> xmlFilePaths, Optional<String> xmlPathToStringFunction) throws SAXException, IOException {
+    public static List<ClassDefinition> parseFiles(String parentClassName, String xmlFilePath, Optional<String> xmlPathToStringFunction, Set<@NotNull String> xmlElementsToAvoid) throws SAXException, IOException {
         SAXParser saxParser = null;
         try {
             saxParser = SAXParserFactory.newInstance().newSAXParser();
@@ -59,14 +58,13 @@ class XMLConstantsParser {
         BiConsumer<Stack<String>, String> onFindPropertyWithValue = (elements, value) -> {
             Stream<String> elementsStream = elements.stream();
             Optional<String> firstElement = elements.stream().findFirst();
-            if (firstElement.isPresent() && firstElement.get().equals(FIRST_ELEMENT_TO_IGNORE)) {
+            if (firstElement.isPresent() && firstElement.get().equals(XMLConstantsParser.FIRST_ELEMENT_TO_IGNORE)) {
                 elementsStream = elementsStream.skip(1);
             }
             endPointClasses.add(new PropertyAndValue(elementsStream.toList(), value));
         };
-        for (var xmlFileInput : xmlFilePaths) {
-            saxParser.parse(xmlFileInput, new XMLDocumentParser(onFindPropertyWithValue));
-        }
+        
+        saxParser.parse(xmlFilePath, new XMLDocumentParser(onFindPropertyWithValue, xmlElementsToAvoid));
         
         var checkedIntermediaryClasses = endPointClasses
                 .stream()
@@ -89,14 +87,15 @@ class XMLConstantsParser {
         });
         
         var intermediaryClassesDefinition = intermediaryClasses.stream().map(intermediaryClass ->
-                                                                                     new ClassDefinition(intermediaryClass, "public static final class " + correctClassName(intermediaryClass.get(intermediaryClass.size()-1))));
+                                                                                     new ClassDefinition(intermediaryClass, "public static final class " + correctClassName(intermediaryClass.get(intermediaryClass.size() - 1))));
         var endPointClassesDefinition = endPointClasses
                 .stream()
                 .map(endPointClass -> {
+                    
                          var stringParameters = XMLConstantsParser.extractParameterNames(endPointClass.value);
                          String stringifyFunction;
-                         String getString = xmlPathToStringFunction.isEmpty()? "\""+endPointClass.value.replace("\"", "\\\"")+"\"":
-                                 xmlPathToStringFunction.get()+"(\""+ String.join(".", endPointClass.path) +"\")";
+                         String getString = xmlPathToStringFunction.isEmpty() ? "\"" + endPointClass.value.replace("\"", "\\\"") + "\"" :
+                                 xmlPathToStringFunction.get() + "(\"" + String.join(".", endPointClass.path) + "\")";
                          if (stringParameters.isEmpty()) {
                              stringifyFunction = "public static String stringify() { return " + getString + "; } ";
                          } else {
@@ -104,10 +103,10 @@ class XMLConstantsParser {
                                                                       .map(parameter -> "Object v" + parameter)
                                                                       .collect(Collectors.joining(","));
                              var createEntries = stringParameters.stream()
-                                                                         .map(parameter -> "java.util.Map.entry(\"" + parameter + "\", v" + parameter + ")")
-                                                                         .collect(Collectors.joining(", "));
+                                                                 .map(parameter -> "java.util.Map.entry(\"" + parameter + "\", v" + parameter + ")")
+                                                                 .collect(Collectors.joining(", "));
                              stringifyFunction = "public static String stringify(" + functionParameters + ") {" +
-                                     "return StringFormat.apply(" + getString + ", java.util.Map.ofEntries("+createEntries+"));" +
+                                     "return StringFormat.apply(" + getString + ", java.util.Map.ofEntries(" + createEntries + "));" +
                                      "}";
                          }
                          
@@ -130,14 +129,25 @@ class XMLConstantsParser {
                       userClasses.get(parentPath).subClasses.add(classDefinition);
                   }
               });
-        return userClasses.entrySet().stream()
-                          .filter(entry -> !entry.getKey().contains("."))
-                          .map(Map.Entry::getValue)
-                          .toList();
+        List<ClassDefinition> classContents = new ArrayList<>(userClasses.entrySet().stream()
+                                                                         .filter(entry -> !entry.getKey().contains("."))
+                                                                         .map(Map.Entry::getValue)
+                                                                         .toList());
+        var parentTopClass = classContents.stream()
+                     .filter((topLevelClass) ->topLevelClass.path.get(0).equals(parentClassName))
+                     .findFirst();
+        parentTopClass.ifPresent(topClass->{
+                         classContents.remove(topClass);
+                         classContents.addAll(topClass.subClasses());
+                     });
+        
+        return classContents;
+        
+        
     }
     
     private static String correctClassName(String className) {
-        return className.replace(".", "_").replace("-","_");
+        return className.replace(".", "_").replace("-", "_");
     }
     
     public static class XMLDocumentParser extends org.xml.sax.helpers.DefaultHandler {
@@ -145,9 +155,14 @@ class XMLConstantsParser {
         final Stack<String> elementsPath;
         
         final BiConsumer<Stack<String>, String> onFindPropertyWithValue;
+        final Set<String> elementsToAvoid;
         
-        public XMLDocumentParser(BiConsumer<Stack<String>, String> onFindPropertyWithValue) {
-            elementsPath = new Stack<>();
+        HashMap<String, Integer> currentlyAvoidingElements = new HashMap<>();
+        
+        
+        public XMLDocumentParser(BiConsumer<Stack<String>, String> onFindPropertyWithValue, Set<String> elementsToAvoid) {
+            this.elementsToAvoid = elementsToAvoid;
+            this.elementsPath = new Stack<>();
             this.onFindPropertyWithValue = onFindPropertyWithValue;
         }
         
@@ -155,15 +170,34 @@ class XMLConstantsParser {
         public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
             super.startElement(uri, localName, qName, attributes);
             elementsPath.push(qName);
+            
+            if (this.elementsToAvoid.contains(qName)) {
+                if (!this.currentlyAvoidingElements.containsKey(qName)) {
+                    this.currentlyAvoidingElements.put(qName, 0);
+                }
+                this.currentlyAvoidingElements.put(qName, this.currentlyAvoidingElements.get(qName) + 1);
+            }
+            
+            if (!this.currentlyAvoidingElements.isEmpty()) {
+                return;
+            }
             var value = attributes.getValue("value");
             if (value != null) {
-                onFindPropertyWithValue.accept(elementsPath, value);
+                this.onFindPropertyWithValue.accept(this.elementsPath, value);
             }
         }
         
         @Override public void endElement(String uri, String localName, String qName) throws SAXException {
+            if (this.currentlyAvoidingElements.containsKey(qName)) {
+                int newAvoidedAmount = this.currentlyAvoidingElements.get(qName) - 1;
+                if (newAvoidedAmount > 0) {
+                    this.currentlyAvoidingElements.put(qName, newAvoidedAmount);
+                } else {
+                    this.currentlyAvoidingElements.remove(qName);
+                }
+            }
             super.endElement(uri, localName, qName);
-            elementsPath.pop();
+            this.elementsPath.pop();
         }
     }
     
@@ -174,6 +208,7 @@ class XMLConstantsParser {
                                                                                  "(,\\s*(?<style>\\w+?)\\s*)?" +
                                                                                  "(?<unused>,\\w*?)?" +
                                                                                  "}");
+    
     /**
      * Gets the {@code arguments} names of a {@code pattern} as it is done in StringFormat or org.openmarkov.core.
      *
@@ -188,4 +223,5 @@ class XMLConstantsParser {
                 .filter(alreadyFoundParameters::add)
                 .toList();
     }
+    
 }

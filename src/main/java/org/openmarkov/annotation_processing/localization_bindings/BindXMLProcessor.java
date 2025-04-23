@@ -33,6 +33,11 @@ import java.util.stream.Stream;
 public class BindXMLProcessor extends AbstractProcessor {
     
     /**
+     * '_en.xml' -> 7 characters
+     */
+    private static final int LAST_CHARACTERS_IN_XML_BIND_FILE = 7;
+    
+    /**
      * Simple struct for holding an {@code annotatedElement} that was annotated with {@link BindXML}, and the own
      * {@link BindXML} in the {@code definition} component.
      */
@@ -83,11 +88,8 @@ public class BindXMLProcessor extends AbstractProcessor {
      */
     @SuppressWarnings({"SpellCheckingInspection", "DuplicateStringLiteralInspection"})
     private void createBindingClass(BindXML bindingInfo, Element element) throws IOException, SAXException {
-        String constantsClassName = BindXMLProcessor.getStringOrDefault(bindingInfo.inBaseClass(), "constants");
         var defaultPackage = this.processingEnv.getElementUtils().getPackageOf(element).toString();
         var inPackage = BindXMLProcessor.getStringOrDefault(bindingInfo.inPackage(), defaultPackage);
-        JavaFileObject fileObject = this.processingEnv.getFiler()
-                                                      .createSourceFile(inPackage + "." + constantsClassName);
         var userFileNameFilter = Pattern.compile(bindingInfo.filterFileNameByRegex());
         
         var xmlPathToStringFn = Optional.of(bindingInfo.xmlPathToStringFunction())
@@ -111,29 +113,40 @@ public class BindXMLProcessor extends AbstractProcessor {
             }
         }
         
-        
         this.processingEnv.getMessager()
                           .printMessage(Diagnostic.Kind.NOTE, "Processing BindXML with files: " + filesSet);
         
+        Optional<String> constantsClassName = Optional.of(bindingInfo.inBaseClass())
+                                                      .filter((name) -> filesSet.size() <= 1 && !name.isBlank());
         
-        var constantsClass = new XMLConstantsParser
-                .ClassDefinition(new ArrayList<>(), "package " + inPackage + ";" +
-                "import org.openmarkov.core.stringformat.StringFormat;" +
-                "public final class " + constantsClassName, "");
-        var xmlSubclasses = XMLConstantsParser.parseFiles(filesSet.stream().toList(), xmlPathToStringFn);
-        constantsClass.addSubClasses(xmlSubclasses);
-        try (Writer writer = fileObject.openWriter()) {
-            writer.write(constantsClass.toString());
-        } catch (FilerException ex) {
-            @SuppressWarnings("BooleanVariableAlwaysNegated")
-            boolean isRecreateError = ex.getMessage().startsWith("Attempt to recreate a file");
-            if (!isRecreateError) {
-                throw ex;
+        for (String filepath : filesSet) {
+            File file = new File(filepath);
+            var className = constantsClassName.orElse(file.getName()
+                                                          .substring(0, file.getName()
+                                                                            .length() - BindXMLProcessor.LAST_CHARACTERS_IN_XML_BIND_FILE));
+            var constantsClass = new XMLConstantsParser
+                    .ClassDefinition(new ArrayList<>(), "package " + inPackage + ";" +
+                    "import org.openmarkov.core.stringformat.StringFormat;" +
+                    "public final class " + className, "");
+            var xmlSubclasses = XMLConstantsParser.parseFiles(className, filepath, xmlPathToStringFn, Set.of("BUNDLEFILE"));
+            constantsClass.addSubClasses(xmlSubclasses);
+            JavaFileObject fileObject = this.processingEnv.getFiler()
+                                                          .createSourceFile(inPackage + "." + className);
+            try (Writer writer = fileObject.openWriter()) {
+                writer.write(constantsClass.toString());
+            } catch (FilerException ex) {
+                @SuppressWarnings("BooleanVariableAlwaysNegated")
+                boolean isRecreateError = ex.getMessage().startsWith("Attempt to recreate a file");
+                if (!isRecreateError) {
+                    throw ex;
+                }
+                this.processingEnv
+                        .getMessager()
+                        .printMessage(Diagnostic.Kind.NOTE, "This class was trying to replace an already existing file", element);
             }
-            this.processingEnv
-                    .getMessager()
-                    .printMessage(Diagnostic.Kind.NOTE, "This class was trying to replace an already existing file", element);
         }
+        
+        
     }
     
     /**

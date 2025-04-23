@@ -163,11 +163,13 @@ public @interface BindXML {
     /**
      * Specifies the name of the class where the bindings will be generated.
      * <p>
-     * Its name by default is 'Localize' if you don't specify it.
+     * When left as empty, it uses the name of the binding file as the name for the generated class, which is the
+     * default behavior.
+     *
      *
      * @return the name of the class where the bindings will be generated.
      */
-    String inBaseClass() default "Localize";
+    String inBaseClass() default "";
     
     /**
      * When generating the bindings, it filters the files using this regex against their name.
