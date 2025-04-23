@@ -46,8 +46,9 @@ class XMLConstantsParser {
     private record PropertyAndValue(List<String> path, String value) {}
     
     
-    public static List<ClassDefinition> parseFiles(String parentClassName, String xmlFilePath, Optional<String> xmlPathToStringFunction, Set<@NotNull String> xmlElementsToAvoid) throws SAXException, IOException {
-        SAXParser saxParser = null;
+    public static List<ClassDefinition> parseFiles(String bundleName, String xmlFilePath,
+                                                   Set<@NotNull String> xmlElementsToAvoid) throws SAXException, IOException {
+        SAXParser saxParser;
         try {
             saxParser = SAXParserFactory.newInstance().newSAXParser();
         } catch (ParserConfigurationException e) {
@@ -94,8 +95,7 @@ class XMLConstantsParser {
                     
                          var stringParameters = XMLConstantsParser.extractParameterNames(endPointClass.value);
                          String stringifyFunction;
-                         String getString = xmlPathToStringFunction.isEmpty() ? "\"" + endPointClass.value.replace("\"", "\\\"") + "\"" :
-                                 xmlPathToStringFunction.get() + "(\"" + String.join(".", endPointClass.path) + "\")";
+                         String getString = "org.openmarkov.gui.localize.StringDatabase.getUniqueInstance().getString(\""+bundleName+"\", \"" + String.join(".", endPointClass.path) + "\")";
                          if (stringParameters.isEmpty()) {
                              stringifyFunction = "public static String stringify() { return " + getString + "; } ";
                          } else {
@@ -134,7 +134,7 @@ class XMLConstantsParser {
                                                                          .map(Map.Entry::getValue)
                                                                          .toList());
         var parentTopClass = classContents.stream()
-                     .filter((topLevelClass) ->topLevelClass.path.get(0).equals(parentClassName))
+                     .filter((topLevelClass) ->topLevelClass.path.get(0).equals(bundleName))
                      .findFirst();
         parentTopClass.ifPresent(topClass->{
                          classContents.remove(topClass);

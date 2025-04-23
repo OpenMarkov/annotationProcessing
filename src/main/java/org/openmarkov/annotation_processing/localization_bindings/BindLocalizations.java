@@ -25,14 +25,14 @@ import java.lang.annotation.*;
  * </properties>
  * }
  * </pre></blockquote><br>
- * We could create a binding to every XML element that has a value by attaching an {@link BindXML} annotation to a class
+ * We could create a binding to every XML element that has a value by attaching an {@link BindLocalizations} annotation to a class
  * and indicating the path to the XML file whose binding we want to generate, in this case,
  * {@code my_localization_files/Dialogs_en.xml}:
  * <blockquote><pre>
  * {@code
  * package org.openmarkov.testBinding;
  *
- * @BindXML(filePath = "my_localization_files/Dialogs_en.xml")
+ * @BindLocalization(filePath = "my_localization_files/Dialogs_en.xml")
  * public class Main { }
  * }
  * </pre></blockquote><br>
@@ -97,7 +97,7 @@ import java.lang.annotation.*;
  * {@code
  * package org.openmarkov.testBinding;
  *
- * @BindXML(filePath = "my_localization_files/Dialogs_en.xml")
+ * @BindLocalization(filePath = "my_localization_files/Dialogs_en.xml")
  * public class Main {
  *
  *     public static void main(String[] args) {
@@ -126,9 +126,9 @@ import java.lang.annotation.*;
  * @author jrico
  */
 @Target(ElementType.TYPE)
-@Repeatable(BindXMLRepetition.class)
+@Repeatable(BindLocalizationsRepetition.class)
 @Retention(RetentionPolicy.SOURCE)
-public @interface BindXML {
+public @interface BindLocalizations {
     
     /**
      * List of files and/or directories where XML files are, so bindings can be generated out of said XML files.
@@ -138,18 +138,6 @@ public @interface BindXML {
      * @return A list of files and/or directories with XML from which the bindings are generated.
      */
     String[] filePath();
-    
-    /**
-     * Specifies the method that processes the xml path to get the string.
-     * <p>
-     * By default, it calls the 'org.openmarkov.gui.localize.StringDatabase.getUniqueInstance().getString' to get a
-     * string out of the path.
-     * <p>
-     * It can be set as empty to return the value of the XML element instead of processing its path.
-     *
-     * @return the method that processes the xml path to get the string.
-     */
-    String xmlPathToStringFunction() default "org.openmarkov.gui.localize.StringDatabase.getUniqueInstance().getString";
     
     /**
      * Specifies the package where the binding class will be located at.
@@ -169,33 +157,36 @@ public @interface BindXML {
      *
      * @return the name of the class where the bindings will be generated.
      */
-    String inBaseClass() default "";
+    String inBaseClass() default "Nls";
     
     /**
-     * When generating the bindings, it filters the files using this regex against their name.
+     * When generating the bindings, it filters the files matching to this language.
      * <p>
-     * By default, this is {@link BindXML#ENGLISH_FILE_NAME_REGEX}, meaning bindings are generated based on the
-     * English localization files.
+     * By default, this is {@link BindLocalizations.Language#ENGLISH}, meaning bindings are generated based on the English
+     * localization files by default.
      * <p>
      * Note: This only applies to files indicated by *directory*, if you specify a xml file in
-     * {@link BindXML#filePath()}, said file won't be checked against this pattern, but if you specify a directory in
-     * {@link BindXML#filePath()}, it's contained files will be checked against this pattern.
+     * {@link BindLocalizations#filePath()}, said file won't be checked against this pattern, but if you specify a directory in
+     * {@link BindLocalizations#filePath()}, it's contained files will be checked against this pattern.
      *
-     * @return A regex filtering the names of the files whose bindings will be made.
+     * @return The language for filtering the names of the files whose bindings will be made.
      */
-    String filterFileNameByRegex() default BindXML.ENGLISH_FILE_NAME_REGEX;
+    BindLocalizations.Language filterFileNameByLanguage() default Language.ENGLISH;
     
     /**
-     * Pattern followed by english localization files.
-     * <p>
-     * This means english localization files always end on 'en.xml', such as 'Dialogs_en.xml'.
+     * Different languages that Localization files are written in.
      */
-    String ENGLISH_FILE_NAME_REGEX = "en\\.xml$";
-    
-    /**
-     * Pattern followed by spanish localization files.
-     * <p>
-     * This means spanish localization files always end on 'es.xml', such as 'Dialogs_es.xml'.
-     */
-    String SPANISH_FILE_NAME_REGEX = "es\\.xml$";
+    enum Language{
+        ENGLISH,SPANISH;
+        
+        /**
+         * @return The final characters of a localization file
+         */
+        String fileTerminator(){
+            return switch (this){
+                case ENGLISH -> "_en.xml";
+                case SPANISH -> "_es.xml";
+            };
+        }
+    }
 }

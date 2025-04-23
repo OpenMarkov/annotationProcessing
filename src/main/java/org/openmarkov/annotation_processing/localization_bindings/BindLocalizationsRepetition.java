@@ -6,18 +6,18 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Allows {@link BindXML} to be repeated.
+ * Allows {@link BindLocalizations} to be repeated.
  *
  * @author jrico
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.SOURCE)
-public @interface BindXMLRepetition {
+public @interface BindLocalizationsRepetition {
     /**
-     * The multiple repetitions of {@link BindXML}.
+     * The multiple repetitions of {@link BindLocalizations}.
      *
-     * @return multiple repetitions of {@link BindXML}.
+     * @return multiple repetitions of {@link BindLocalizations}.
      */
-    BindXML[] value();
+    BindLocalizations[] value();
 }
 

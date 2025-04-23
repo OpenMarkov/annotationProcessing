@@ -16,51 +16,49 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.*;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
- * Process classes annotated with {@link BindXML} by generating a Binding class out of the specified resources.
+ * Process classes annotated with {@link BindLocalizations} by generating a Binding class out of the specified resources.
  *
  * @author jrico
  */
 @SupportedAnnotationTypes({
-        "org.openmarkov.annotation_processing.localization_bindings.BindXML",
-        "org.openmarkov.annotation_processing.localization_bindings.BindXMLRepetition"
+        "org.openmarkov.annotation_processing.localization_bindings.BindLocalizations",
+        "org.openmarkov.annotation_processing.localization_bindings.BindLocalizationsRepetition"
 })
 @SupportedSourceVersion(SourceVersion.RELEASE_17)
 @AutoService(Processor.class)
-public class BindXMLProcessor extends AbstractProcessor {
+public class BindLocalizationsProcessor extends AbstractProcessor {
     
-    /**
-     * '_en.xml' -> 7 characters
-     */
-    private static final int LAST_CHARACTERS_IN_XML_BIND_FILE = 7;
-    
-    /**
-     * Simple struct for holding an {@code annotatedElement} that was annotated with {@link BindXML}, and the own
-     * {@link BindXML} in the {@code definition} component.
-     */
-    private record BindingInformation(Element annotatedElement, BindXML definition) {
+    public BindLocalizationsProcessor() {
+        super();
     }
     
     /**
-     * Gathers {@link BindXML} from every tagged element to create an XMLBinding class using
-     * {@link BindXMLProcessor#createBindingClass(BindXML, Element)}.
+     * Simple struct for holding an {@code annotatedElement} that was annotated with {@link BindLocalizations}, and the own
+     * {@link BindLocalizations} in the {@code definition} component.
+     */
+    private record BindingInformation(Element annotatedElement, BindLocalizations definition) {
+    }
+    
+    /**
+     * Gathers {@link BindLocalizations} from every tagged element to create an XMLBinding class using
+     * {@link BindLocalizationsProcessor#createBindingClass(BindLocalizations, Element)}.
      *
      * @return true
      */
     @Override
     public final boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "- BindXML processing round start -");
+        this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "- BindLocalizations processing round start -");
         annotations
                 .stream()
                 .map(roundEnv::getElementsAnnotatedWith)
                 .flatMap(Collection::stream)
                 .flatMap(element -> {
-                    var singleAnnotation = element.getAnnotation(BindXML.class);
+                    var singleAnnotation = element.getAnnotation(BindLocalizations.class);
                     if (singleAnnotation != null) return Stream.of(new BindingInformation(element, singleAnnotation));
-                    var multipleAnnotations = element.getAnnotation(BindXMLRepetition.class);
+                    var multipleAnnotations = element.getAnnotation(BindLocalizationsRepetition.class);
                     return Arrays.stream(multipleAnnotations.value())
                                  .map(annotation -> new BindingInformation(element, annotation));
                 })
@@ -68,12 +66,11 @@ public class BindXMLProcessor extends AbstractProcessor {
                     try {
                         this.createBindingClass(bindingInfo.definition, bindingInfo.annotatedElement);
                     } catch (IOException | SAXException ex) {
-                        this.processingEnv
-                                .getMessager()
-                                .printMessage(Diagnostic.Kind.ERROR, "Could not create binding due to: " + ex, bindingInfo.annotatedElement);
+                        this.processingEnv.getMessager()
+                                          .printMessage(Diagnostic.Kind.ERROR, "Could not create binding due to: " + ex, bindingInfo.annotatedElement);
                     }
                 });
-        this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "- BindXML processing round end -");
+        this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "- BindLocalizations processing round end -");
         return true;
     }
     
@@ -87,66 +84,59 @@ public class BindXMLProcessor extends AbstractProcessor {
      * @throws SAXException When XML format is wrong.
      */
     @SuppressWarnings({"SpellCheckingInspection", "DuplicateStringLiteralInspection"})
-    private void createBindingClass(BindXML bindingInfo, Element element) throws IOException, SAXException {
+    private void createBindingClass(BindLocalizations bindingInfo, Element element) throws IOException, SAXException {
         var defaultPackage = this.processingEnv.getElementUtils().getPackageOf(element).toString();
-        var inPackage = BindXMLProcessor.getStringOrDefault(bindingInfo.inPackage(), defaultPackage);
-        var userFileNameFilter = Pattern.compile(bindingInfo.filterFileNameByRegex());
-        
-        var xmlPathToStringFn = Optional.of(bindingInfo.xmlPathToStringFunction())
-                                        .filter(call -> !call.isBlank());
-        
+        var inPackage = BindLocalizationsProcessor.getStringOrDefault(bindingInfo.inPackage(), defaultPackage);
+        var languageFilter = bindingInfo.filterFileNameByLanguage().fileTerminator();
         var filesSet = new HashSet<String>();
         for (var path : bindingInfo.filePath()) {
             var resource = this.callerResourcePathToFile(this.processingEnv, path);
             if (resource == null)
                 continue;
-            var files = resource.isFile() ? Arrays.asList(resource)
+            var files = resource.isFile() ? List.of(resource)
                     : Arrays.stream(Objects.requireNonNull(resource.listFiles())).toList();
             for (var file : files) {
-                boolean isMatchedFile = file.isFile() && userFileNameFilter.matcher(file.getName()).find();
+                boolean isMatchedFile = file.isFile() && file.getName().endsWith(languageFilter);
                 if (!isMatchedFile || !file.getName().endsWith("xml"))
                     continue;
-                
-                this.processingEnv.getMessager()
-                                  .printMessage(Diagnostic.Kind.NOTE, "Adding resource: " + path + " of path " + file.getAbsolutePath());
                 filesSet.add(file.getAbsolutePath());
             }
         }
-        
         this.processingEnv.getMessager()
-                          .printMessage(Diagnostic.Kind.NOTE, "Processing BindXML with files: " + filesSet);
+                          .printMessage(Diagnostic.Kind.NOTE, "Processing BindLocalizations with files: " + filesSet);
         
-        Optional<String> constantsClassName = Optional.of(bindingInfo.inBaseClass())
-                                                      .filter((name) -> filesSet.size() <= 1 && !name.isBlank());
-        
+        var localizationClasses = new ArrayList<XMLConstantsParser.ClassDefinition>(filesSet.size());
         for (String filepath : filesSet) {
             File file = new File(filepath);
-            var className = constantsClassName.orElse(file.getName()
-                                                          .substring(0, file.getName()
-                                                                            .length() - BindXMLProcessor.LAST_CHARACTERS_IN_XML_BIND_FILE));
+            String bundleName = file.getName()
+                                    .substring(0, file.getName()
+                                                      .length() - languageFilter.length());
             var constantsClass = new XMLConstantsParser
-                    .ClassDefinition(new ArrayList<>(), "package " + inPackage + ";" +
-                    "import org.openmarkov.core.stringformat.StringFormat;" +
-                    "public final class " + className, "");
-            var xmlSubclasses = XMLConstantsParser.parseFiles(className, filepath, xmlPathToStringFn, Set.of("BUNDLEFILE"));
+                    .ClassDefinition(new ArrayList<>(), "public final class " + bundleName, "");
+            var xmlSubclasses = XMLConstantsParser.parseFiles(bundleName, filepath, Set.of("BUNDLEFILE"));
             constantsClass.addSubClasses(xmlSubclasses);
-            JavaFileObject fileObject = this.processingEnv.getFiler()
-                                                          .createSourceFile(inPackage + "." + className);
-            try (Writer writer = fileObject.openWriter()) {
-                writer.write(constantsClass.toString());
-            } catch (FilerException ex) {
-                @SuppressWarnings("BooleanVariableAlwaysNegated")
-                boolean isRecreateError = ex.getMessage().startsWith("Attempt to recreate a file");
-                if (!isRecreateError) {
-                    throw ex;
-                }
-                this.processingEnv
-                        .getMessager()
-                        .printMessage(Diagnostic.Kind.NOTE, "This class was trying to replace an already existing file", element);
-            }
+            localizationClasses.add(constantsClass);
         }
-        
-        
+        var constantsClass = new XMLConstantsParser
+                .ClassDefinition(new ArrayList<>(), "package " + inPackage + ";" +
+                "import org.openmarkov.core.stringformat.StringFormat;" +
+                "public final class " + bindingInfo.inBaseClass(), "");
+        constantsClass.addSubClasses(localizationClasses);
+        JavaFileObject fileObject = this.processingEnv.getFiler()
+                                                      .createSourceFile(inPackage + "." + bindingInfo.inBaseClass());
+        try (Writer writer = fileObject.openWriter()) {
+            writer.write(constantsClass.toString());
+            this.processingEnv.getMessager()
+                              .printMessage(Diagnostic.Kind.NOTE, "Binding class was successfully created");
+        } catch (FilerException ex) {
+            @SuppressWarnings("BooleanVariableAlwaysNegated")
+            boolean isRecreateError = ex.getMessage().startsWith("Attempt to recreate a file");
+            if (!isRecreateError) {
+                throw ex;
+            }
+            this.processingEnv.getMessager()
+                              .printMessage(Diagnostic.Kind.NOTE, "This class was trying to replace an already existing file: "+ex, element);
+        }
     }
     
     /**
@@ -173,6 +163,9 @@ public class BindXMLProcessor extends AbstractProcessor {
             }
             return file;
         } catch (IOException ex) {
+            this.processingEnv.getMessager()
+                              .printMessage(Diagnostic.Kind.NOTE, "Could not resolve file " + resourceRelativePath);
+            
             return null;
         }
     }
