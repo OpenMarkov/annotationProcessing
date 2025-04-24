@@ -130,6 +130,8 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.SOURCE)
 public @interface BindLocalizations {
     
+    boolean fileIsDirectoryChild() default false;
+    
     /**
      * List of files and/or directories where XML files are, so bindings can be generated out of said XML files.
      * <p>

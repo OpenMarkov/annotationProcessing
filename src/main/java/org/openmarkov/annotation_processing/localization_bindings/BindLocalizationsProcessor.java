@@ -90,7 +90,7 @@ public class BindLocalizationsProcessor extends AbstractProcessor {
         var languageFilter = bindingInfo.filterFileNameByLanguage().fileTerminator();
         var filesSet = new HashSet<String>();
         for (var path : bindingInfo.filePath()) {
-            var resource = this.callerResourcePathToFile(this.processingEnv, path);
+            var resource = this.callerResourcePathToFile(this.processingEnv, path, bindingInfo.fileIsDirectoryChild());
             if (resource == null)
                 continue;
             var files = resource.isFile() ? List.of(resource)
@@ -145,17 +145,24 @@ public class BindLocalizationsProcessor extends AbstractProcessor {
      * @return an {@code Optional<File>} containing the file only if it exists.
      */
     @SuppressWarnings("OverlyBroadCatchBlock")
-    private @Nullable File callerResourcePathToFile(ProcessingEnvironment environment, CharSequence resourceRelativePath) {
+    private @Nullable File callerResourcePathToFile(ProcessingEnvironment environment, CharSequence resourceRelativePath, boolean fileIsDirectoryChild) {
         this.processingEnv.getMessager()
                           .printMessage(Diagnostic.Kind.NOTE, "Resolving resource: " + resourceRelativePath);
         try {
             FileObject resource = environment
                     .getFiler()
                     .getResource(StandardLocation.CLASS_OUTPUT, "", resourceRelativePath);
-            
             this.processingEnv.getMessager()
                               .printMessage(Diagnostic.Kind.NOTE, "Resource is file: " + resource.toUri());
             var file = new File(resource.toUri().toURL().getFile());
+            if (!file.exists()) {
+                this.processingEnv.getMessager()
+                                  .printMessage(Diagnostic.Kind.NOTE, "This resource does not exists: " + file.getAbsolutePath() + ".");
+                return null;
+            }
+            if (fileIsDirectoryChild){
+                file=file.getParentFile();
+            }
             if (!file.exists()) {
                 this.processingEnv.getMessager()
                                   .printMessage(Diagnostic.Kind.NOTE, "This resource does not exists: " + file.getAbsolutePath() + ".");
