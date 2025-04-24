@@ -95,7 +95,7 @@ class XMLConstantsParser {
                     
                          var stringParameters = XMLConstantsParser.extractParameterNames(endPointClass.value);
                          String stringifyFunction;
-                         String getString = "org.openmarkov.gui.localize.StringDatabase.getUniqueInstance().getString(\""+bundleName+"\", \"" + String.join(".", endPointClass.path) + "\")";
+                         String getString = "getUniqueInstance().getString(\""+bundleName+"\", \"" + String.join(".", endPointClass.path) + "\")";
                          if (stringParameters.isEmpty()) {
                              stringifyFunction = "public static String stringify() { return " + getString + "; } ";
                          } else {

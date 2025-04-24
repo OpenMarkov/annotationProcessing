@@ -119,7 +119,7 @@ public class BindLocalizationsProcessor extends AbstractProcessor {
         }
         var constantsClass = new XMLConstantsParser
                 .ClassDefinition(new ArrayList<>(), "package " + inPackage + ";" +
-                "import org.openmarkov.core.stringformat.StringFormat;" +
+                "import org.openmarkov.core.stringformat.StringFormat; import static org.openmarkov.gui.localize.StringDatabase.getUniqueInstance;" +
                 "public final class " + bindingInfo.inBaseClass(), "");
         constantsClass.addSubClasses(localizationClasses);
         JavaFileObject fileObject = this.processingEnv.getFiler()
