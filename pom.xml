@@ -12,7 +12,7 @@
     -->
 
     <groupId>org.openmarkov</groupId>
-    <artifactId>org.openmarkov.annotation_processing</artifactId>
+    <artifactId>org.openmarkov.annotationProcessing</artifactId>
     <version>0.3.0-SNAPSHOT</version>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
