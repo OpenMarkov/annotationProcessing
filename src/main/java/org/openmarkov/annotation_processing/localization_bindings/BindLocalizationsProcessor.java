@@ -7,6 +7,7 @@ import org.xml.sax.SAXException;
 import javax.annotation.processing.*;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
@@ -36,10 +37,15 @@ public class BindLocalizationsProcessor extends AbstractProcessor {
     }
     
     /**
-     * Simple struct for holding an {@code annotatedElement} that was annotated with {@link BindLocalizations}, and the own
-     * {@link BindLocalizations} in the {@code definition} component.
+     * Trims and returns the {@code input} {@link String}, unless it is blank or null, in which case it trims and
+     * returns the other {@code defaultString}.
+     *
+     * @return {@code input} trimmed, and if empty, {@code defaultString} trimmed.
      */
-    private record BindingInformation(Element annotatedElement, BindLocalizations definition) {
+    private static String getStringOrDefault(String input, String defaultString) {
+        if (input == null || input.isBlank())
+            return defaultString.trim();
+        return input.trim();
     }
     
     /**
@@ -50,7 +56,10 @@ public class BindLocalizationsProcessor extends AbstractProcessor {
      */
     @Override
     public final boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "- BindLocalizations processing round start -");
+        this.processingEnv.getMessager()
+                          .printMessage(Diagnostic.Kind.NOTE, "- BindLocalizations processing round start -");
+
+        
         annotations
                 .stream()
                 .map(roundEnv::getElementsAnnotatedWith)
@@ -70,7 +79,8 @@ public class BindLocalizationsProcessor extends AbstractProcessor {
                                           .printMessage(Diagnostic.Kind.ERROR, "Could not create binding due to: " + ex, bindingInfo.annotatedElement);
                     }
                 });
-        this.processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "- BindLocalizations processing round end -");
+        this.processingEnv.getMessager()
+                          .printMessage(Diagnostic.Kind.NOTE, "- BindLocalizations processing round end -");
         return true;
     }
     
@@ -135,7 +145,7 @@ public class BindLocalizationsProcessor extends AbstractProcessor {
                 throw ex;
             }
             this.processingEnv.getMessager()
-                              .printMessage(Diagnostic.Kind.NOTE, "This class was trying to replace an already existing file: "+ex, element);
+                              .printMessage(Diagnostic.Kind.NOTE, "This class was trying to replace an already existing file: " + ex, element);
         }
     }
     
@@ -160,8 +170,8 @@ public class BindLocalizationsProcessor extends AbstractProcessor {
                                   .printMessage(Diagnostic.Kind.NOTE, "This resource does not exists: " + file.getAbsolutePath() + ".");
                 return null;
             }
-            if (fileIsDirectoryChild){
-                file=file.getParentFile();
+            if (fileIsDirectoryChild) {
+                file = file.getParentFile();
             }
             if (!file.exists()) {
                 this.processingEnv.getMessager()
@@ -178,14 +188,9 @@ public class BindLocalizationsProcessor extends AbstractProcessor {
     }
     
     /**
-     * Trims and returns the {@code input} {@link String}, unless it is blank or null, in which case it trims and
-     * returns the other {@code defaultString}.
-     *
-     * @return {@code input} trimmed, and if empty, {@code defaultString} trimmed.
+     * Simple struct for holding an {@code annotatedElement} that was annotated with {@link BindLocalizations}, and the own
+     * {@link BindLocalizations} in the {@code definition} component.
      */
-    private static String getStringOrDefault(String input, String defaultString) {
-        if (input == null || input.isBlank())
-            return defaultString.trim();
-        return input.trim();
+    private record BindingInformation(Element annotatedElement, BindLocalizations definition) {
     }
 }

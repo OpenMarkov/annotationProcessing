@@ -47,7 +47,7 @@ import java.lang.annotation.*;
  * public final class Localize {
  *     public static final class WrongNetType {
  *         public static String stringify(Object NetName, Object DesiredNetType) {
- *             return StringFormat.apply(org.openmarkov.gui.localize.StringDatabase.getUniqueInstance()
+ *             return StringFormat.apply(org.openmarkov.core.localize.StringDatabase.getUniqueInstance()
  *                                                                                 .getString("WrongNetType"),
  *                                       java.util.Map.ofEntries(
  *                                               java.util.Map.entry("NetName", NetName),
@@ -57,20 +57,20 @@ import java.lang.annotation.*;
  *
  *     public static final class AddOtherProperty {
  *         public static String stringify() {
- *             return org.openmarkov.gui.localize.StringDatabase.getUniqueInstance().getString("AddOtherProperty");
+ *             return org.openmarkov.core.localize.StringDatabase.getUniqueInstance().getString("AddOtherProperty");
  *         }
  *
  *         public static final class Name {
  *             public static final class Title {
  *                 public static String stringify() {
- *                     return org.openmarkov.gui.localize.StringDatabase.getUniqueInstance()
+ *                     return org.openmarkov.core.localize.StringDatabase.getUniqueInstance()
  *                                                                      .getString("AddOtherProperty.Name.Title");
  *                 }
  *             }
  *
  *             public static final class Message {
  *                 public static String stringify() {
- *                     return org.openmarkov.gui.localize.StringDatabase.getUniqueInstance()
+ *                     return org.openmarkov.core.localize.StringDatabase.getUniqueInstance()
  *                                                                      .getString("AddOtherProperty.Name.Message");
  *                 }
  *             }
