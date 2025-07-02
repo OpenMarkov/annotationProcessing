@@ -18,33 +18,13 @@ import java.util.stream.Stream;
 class XMLConstantsParser {
     
     private static final String FIRST_ELEMENT_TO_IGNORE = "properties";
-    
-    public record ClassDefinition(List<String> path, String classDefinition, String classContents,
-                                  ArrayList<ClassDefinition> subClasses) {
-        
-        public ClassDefinition(List<String> path, String classDefinition, String classContents) {
-            this(path, classDefinition, classContents, new ArrayList<>());
-        }
-        
-        public ClassDefinition(List<String> path, String classDefinition) {
-            this(path, classDefinition, "", new ArrayList<>());
-        }
-        
-        public void addSubClasses(Collection<ClassDefinition> subClasses) {
-            this.subClasses.addAll(subClasses);
-        }
-        
-        @Override public String toString() {
-            String subClassesContentsSeparated = subClasses
-                    .stream()
-                    .map(Objects::toString)
-                    .collect(Collectors.joining(" "));
-            return classDefinition + " { \n" + classContents + " " + subClassesContentsSeparated + "\n }";
-        }
-    }
-    
-    private record PropertyAndValue(List<String> path, String value) {}
-    
+    private static final Pattern NAMED_PARAMETER_REGEX = Pattern.compile("(?x)" +
+                                                                                 "\\{" +
+                                                                                 "\\s*(?<name>\\w+?)\\s*" +
+                                                                                 "(,\\s*(?<format>\\w+?)\\s*)?" +
+                                                                                 "(,\\s*(?<style>\\w+?)\\s*)?" +
+                                                                                 "(?<unused>,\\w*?)?" +
+                                                                                 "}");
     
     public static List<ClassDefinition> parseFiles(String bundleName, String xmlFilePath,
                                                    Set<@NotNull String> xmlElementsToAvoid) throws SAXException, IOException {
@@ -92,10 +72,10 @@ class XMLConstantsParser {
         var endPointClassesDefinition = endPointClasses
                 .stream()
                 .map(endPointClass -> {
-                    
+                         
                          var stringParameters = XMLConstantsParser.extractParameterNames(endPointClass.value);
                          String stringifyFunction;
-                         String getString = "org.openmarkov.core.localize.StringDatabase.getUniqueInstance().getString(\""+bundleName+"\", \"" + String.join(".", endPointClass.path) + "\")";
+                         String getString = "org.openmarkov.core.localize.StringDatabase.getUniqueInstance().getString(\"" + bundleName + "\", \"" + String.join(".", endPointClass.path) + "\")";
                          if (stringParameters.isEmpty()) {
                              stringifyFunction = "public static String stringify() { return " + getString + "; } ";
                          } else {
@@ -134,12 +114,12 @@ class XMLConstantsParser {
                                                                          .map(Map.Entry::getValue)
                                                                          .toList());
         var parentTopClass = classContents.stream()
-                     .filter((topLevelClass) ->topLevelClass.path.get(0).equals(bundleName))
-                     .findFirst();
-        parentTopClass.ifPresent(topClass->{
-                         classContents.remove(topClass);
-                         classContents.addAll(topClass.subClasses());
-                     });
+                                          .filter((topLevelClass) -> topLevelClass.path.get(0).equals(bundleName))
+                                          .findFirst();
+        parentTopClass.ifPresent(topClass -> {
+            classContents.remove(topClass);
+            classContents.addAll(topClass.subClasses());
+        });
         
         return classContents;
         
@@ -150,6 +130,48 @@ class XMLConstantsParser {
         return className.replace(".", "_").replace("-", "_");
     }
     
+    /**
+     * Gets the {@code arguments} names of a {@code pattern} as it is done in StringFormat or org.openmarkov.core.
+     *
+     * @return the {@code arguments} names of a {@code pattern}.
+     */
+    public static List<String> extractParameterNames(CharSequence pattern) {
+        var alreadyFoundParameters = new HashSet<String>();
+        return NAMED_PARAMETER_REGEX
+                .matcher(pattern)
+                .results()
+                .map(match -> match.group(1))
+                .filter(alreadyFoundParameters::add)
+                .toList();
+    }
+    
+    public record ClassDefinition(List<String> path, String classDefinition, String classContents,
+                                  ArrayList<ClassDefinition> subClasses) {
+        
+        public ClassDefinition(List<String> path, String classDefinition, String classContents) {
+            this(path, classDefinition, classContents, new ArrayList<>());
+        }
+        
+        public ClassDefinition(List<String> path, String classDefinition) {
+            this(path, classDefinition, "", new ArrayList<>());
+        }
+        
+        public void addSubClasses(Collection<ClassDefinition> subClasses) {
+            this.subClasses.addAll(subClasses);
+        }
+        
+        @Override public String toString() {
+            String subClassesContentsSeparated = subClasses
+                    .stream()
+                    .map(Objects::toString)
+                    .collect(Collectors.joining(" "));
+            return classDefinition + " { \n" + classContents + " " + subClassesContentsSeparated + "\n }";
+        }
+    }
+    
+    private record PropertyAndValue(List<String> path, String value) {
+    }
+    
     public static class XMLDocumentParser extends org.xml.sax.helpers.DefaultHandler {
         
         final Stack<String> elementsPath;
@@ -158,6 +180,7 @@ class XMLConstantsParser {
         final Set<String> elementsToAvoid;
         
         HashMap<String, Integer> currentlyAvoidingElements = new HashMap<>();
+        private boolean processingIsEnabled = false;
         
         
         public XMLDocumentParser(BiConsumer<Stack<String>, String> onFindPropertyWithValue, Set<String> elementsToAvoid) {
@@ -169,7 +192,13 @@ class XMLConstantsParser {
         @Override
         public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
             super.startElement(uri, localName, qName, attributes);
-            elementsPath.push(qName);
+            if (this.elementsPath.size() == 0){
+                this.processingIsEnabled = !"ClassLocalizations".equals(qName);
+            }
+            this.elementsPath.push(qName);
+            if (!this.processingIsEnabled) {
+                return;
+            }
             
             if (this.elementsToAvoid.contains(qName)) {
                 if (!this.currentlyAvoidingElements.containsKey(qName)) {
@@ -199,29 +228,6 @@ class XMLConstantsParser {
             super.endElement(uri, localName, qName);
             this.elementsPath.pop();
         }
-    }
-    
-    private static final Pattern NAMED_PARAMETER_REGEX = Pattern.compile("(?x)" +
-                                                                                 "\\{" +
-                                                                                 "\\s*(?<name>\\w+?)\\s*" +
-                                                                                 "(,\\s*(?<format>\\w+?)\\s*)?" +
-                                                                                 "(,\\s*(?<style>\\w+?)\\s*)?" +
-                                                                                 "(?<unused>,\\w*?)?" +
-                                                                                 "}");
-    
-    /**
-     * Gets the {@code arguments} names of a {@code pattern} as it is done in StringFormat or org.openmarkov.core.
-     *
-     * @return the {@code arguments} names of a {@code pattern}.
-     */
-    public static List<String> extractParameterNames(CharSequence pattern) {
-        var alreadyFoundParameters = new HashSet<String>();
-        return NAMED_PARAMETER_REGEX
-                .matcher(pattern)
-                .results()
-                .map(match -> match.group(1))
-                .filter(alreadyFoundParameters::add)
-                .toList();
     }
     
 }
