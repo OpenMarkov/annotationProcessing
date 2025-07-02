@@ -1,6 +1,6 @@
 import org.openmarkov.annotation_processing.localization_bindings.BindLocalizationsProcessor;
 
-module org.openmarkov.annotation_processing {
+open module org.openmarkov.annotation_processing {
     requires org.jetbrains.annotations;
     requires java.compiler;
     requires java.xml;
