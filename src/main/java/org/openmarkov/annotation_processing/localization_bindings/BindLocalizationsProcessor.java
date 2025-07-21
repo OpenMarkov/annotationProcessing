@@ -13,6 +13,7 @@ import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
@@ -74,7 +75,7 @@ public class BindLocalizationsProcessor extends AbstractProcessor {
                 .forEach(bindingInfo -> {
                     try {
                         this.createBindingClass(bindingInfo.definition, bindingInfo.annotatedElement);
-                    } catch (IOException | SAXException ex) {
+                    } catch (IOException | SAXException | ParserConfigurationException ex) {
                         this.processingEnv.getMessager()
                                           .printMessage(Diagnostic.Kind.ERROR, "Could not create binding due to: " + ex, bindingInfo.annotatedElement);
                     }
@@ -94,7 +95,7 @@ public class BindLocalizationsProcessor extends AbstractProcessor {
      * @throws SAXException When XML format is wrong.
      */
     @SuppressWarnings({"SpellCheckingInspection", "DuplicateStringLiteralInspection"})
-    private void createBindingClass(BindLocalizations bindingInfo, Element element) throws IOException, SAXException {
+    private void createBindingClass(BindLocalizations bindingInfo, Element element) throws IOException, SAXException, ParserConfigurationException {
         var defaultPackage = this.processingEnv.getElementUtils().getPackageOf(element).toString();
         var inPackage = BindLocalizationsProcessor.getStringOrDefault(bindingInfo.inPackage(), defaultPackage);
         var languageFilter = bindingInfo.filterFileNameByLanguage().fileTerminator();

@@ -27,13 +27,8 @@ class XMLConstantsParser {
                                                                                  "}");
     
     public static List<ClassDefinition> parseFiles(String bundleName, String xmlFilePath,
-                                                   Set<@NotNull String> xmlElementsToAvoid) throws SAXException, IOException {
-        SAXParser saxParser;
-        try {
-            saxParser = SAXParserFactory.newInstance().newSAXParser();
-        } catch (ParserConfigurationException e) {
-            throw new RuntimeException(e);
-        }
+                                                   Set<@NotNull String> xmlElementsToAvoid) throws SAXException, IOException, ParserConfigurationException {
+        SAXParser saxParser= SAXParserFactory.newInstance().newSAXParser();
         var endPointClasses = new ArrayList<PropertyAndValue>();
         // TODO: Add file path
         BiConsumer<Stack<String>, String> onFindPropertyWithValue = (elements, value) -> {
