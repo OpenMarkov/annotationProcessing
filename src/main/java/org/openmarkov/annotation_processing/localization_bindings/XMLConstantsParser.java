@@ -30,7 +30,6 @@ class XMLConstantsParser {
                                                    Set<@NotNull String> xmlElementsToAvoid) throws SAXException, IOException, ParserConfigurationException {
         SAXParser saxParser= SAXParserFactory.newInstance().newSAXParser();
         var endPointClasses = new ArrayList<PropertyAndValue>();
-        // TODO: Add file path
         BiConsumer<Stack<String>, String> onFindPropertyWithValue = (elements, value) -> {
             Stream<String> elementsStream = elements.stream();
             Optional<String> firstElement = elements.stream().findFirst();
