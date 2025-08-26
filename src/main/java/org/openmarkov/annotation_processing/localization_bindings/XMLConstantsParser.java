@@ -186,7 +186,7 @@ class XMLConstantsParser {
         @Override
         public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
             super.startElement(uri, localName, qName, attributes);
-            if (this.elementsPath.size() == 0){
+            if (this.elementsPath.isEmpty()) {
                 this.processingIsEnabled = !"ClassLocalizations".equals(qName);
             }
             this.elementsPath.push(qName);
