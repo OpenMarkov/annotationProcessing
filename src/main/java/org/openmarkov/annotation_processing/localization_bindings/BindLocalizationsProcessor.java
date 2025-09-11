@@ -28,7 +28,7 @@ import java.util.stream.Stream;
         "org.openmarkov.annotation_processing.localization_bindings.BindLocalizations",
         "org.openmarkov.annotation_processing.localization_bindings.BindLocalizationsRepetition"
 })
-@SupportedSourceVersion(SourceVersion.RELEASE_17)
+@SupportedSourceVersion(SourceVersion.RELEASE_21)
 @AutoService(Processor.class)
 public class BindLocalizationsProcessor extends AbstractProcessor {
     
