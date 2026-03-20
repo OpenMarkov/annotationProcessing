@@ -39,6 +39,21 @@
         </dependency>
     </dependencies>
 
+    <distributionManagement>
+        <repository>
+            <uniqueVersion>false</uniqueVersion>
+            <id>development-releases</id>
+            <name>Releases</name>
+            <url>https://nexus.openmarkov.org/repository/development-releases/</url>
+        </repository>
+        <snapshotRepository>
+            <uniqueVersion>true</uniqueVersion>
+            <id>development-snapshots</id>
+            <name>Snapshots</name>
+            <url>https://nexus.openmarkov.org/repository/development-snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
+
     <build>
         <plugins>
             <plugin>
