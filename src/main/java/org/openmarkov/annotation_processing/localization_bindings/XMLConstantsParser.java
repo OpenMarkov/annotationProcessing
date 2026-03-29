@@ -15,6 +15,11 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+/**
+ * Parses XML localization files and generates Java class definitions representing
+ * the hierarchical structure of localization keys. Each XML element with a {@code value}
+ * attribute becomes a nested class with a {@code stringify} method.
+ */
 class XMLConstantsParser {
     
     private static final String FIRST_ELEMENT_TO_IGNORE = "properties";
@@ -26,6 +31,15 @@ class XMLConstantsParser {
                                                                                  "(?<unused>,\\w*?)?" +
                                                                                  "}");
     
+    /**
+     * Parses the given XML file and produces a list of top-level {@link ClassDefinition} objects
+     * that mirror the element hierarchy of the file.
+     *
+     * @param bundleName           the resource bundle name used to look up strings at runtime
+     * @param xmlFilePath          absolute path to the XML localization file
+     * @param xmlElementsToAvoid   element names to skip during parsing
+     * @return a list of top-level class definitions representing the parsed XML structure
+     */
     public static List<ClassDefinition> parseFiles(String bundleName, String xmlFilePath,
                                                    Set<@NotNull String> xmlElementsToAvoid) throws SAXException, IOException, ParserConfigurationException {
         SAXParser saxParser= SAXParserFactory.newInstance().newSAXParser();
@@ -127,6 +141,7 @@ class XMLConstantsParser {
     /**
      * Gets the {@code arguments} names of a {@code pattern} as it is done in StringFormat or org.openmarkov.core.
      *
+     * @param pattern the message pattern containing named placeholders
      * @return the {@code arguments} names of a {@code pattern}.
      */
     public static List<String> extractParameterNames(CharSequence pattern) {
@@ -139,6 +154,10 @@ class XMLConstantsParser {
                 .toList();
     }
     
+    /**
+     * Represents a generated Java class definition with its hierarchical path, class header,
+     * body contents, and nested sub-classes.
+     */
     public record ClassDefinition(List<String> path, String classDefinition, String classContents,
                                   ArrayList<ClassDefinition> subClasses) {
         
@@ -150,6 +169,11 @@ class XMLConstantsParser {
             this(path, classDefinition, "", new ArrayList<>());
         }
         
+        /**
+         * Adds all given sub-class definitions as children of this class.
+         *
+         * @param subClasses the sub-class definitions to add
+         */
         public void addSubClasses(Collection<ClassDefinition> subClasses) {
             this.subClasses.addAll(subClasses);
         }
@@ -166,6 +190,10 @@ class XMLConstantsParser {
     private record PropertyAndValue(List<String> path, String value) {
     }
     
+    /**
+     * SAX handler that walks the XML document, tracking the element path and invoking a
+     * callback whenever an element with a {@code value} attribute is found.
+     */
     public static class XMLDocumentParser extends org.xml.sax.helpers.DefaultHandler {
         
         final Stack<String> elementsPath;
@@ -177,6 +205,12 @@ class XMLConstantsParser {
         private boolean processingIsEnabled = false;
         
         
+        /**
+         * Creates a new parser with the given callback and set of elements to skip.
+         *
+         * @param onFindPropertyWithValue callback invoked with the element path and value
+         * @param elementsToAvoid         element names whose subtrees should be ignored
+         */
         public XMLDocumentParser(BiConsumer<Stack<String>, String> onFindPropertyWithValue, Set<String> elementsToAvoid) {
             this.elementsToAvoid = elementsToAvoid;
             this.elementsPath = new Stack<>();
