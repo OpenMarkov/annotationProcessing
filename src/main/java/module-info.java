@@ -7,6 +7,7 @@ open module org.openmarkov.annotation_processing {
     requires com.google.auto.service;
     
     exports org.openmarkov.annotation_processing.localization_bindings;
+    exports org.openmarkov.annotation_processing;
     
     provides javax.annotation.processing.Processor
             with BindLocalizationsProcessor;
